@@ -4,7 +4,38 @@ import pool from '../db.js'
 
 const router = express.Router()
 
-// Get tracking history for a product
+// Get all tracking events
+router.get('/', async (req, res) => {
+  try {
+    const result = await pool.query(
+      `SELECT
+        id,
+        batch_id,
+        stage,
+        status,
+        location,
+        event_date,
+        description,
+        created_at
+       FROM tracking_events
+       ORDER BY event_date DESC, created_at DESC, id DESC`
+    )
+
+    res.json({
+      success: true,
+      count: result.rowCount,
+      data: result.rows
+    })
+  } catch (error) {
+    console.error('Get all tracking error:', error.message)
+    res.status(500).json({
+      success: false,
+      message: 'Failed to retrieve tracking records'
+    })
+  }
+})
+
+// Get tracking history for one product
 router.get('/:batchId', async (req, res) => {
   try {
     const { batchId } = req.params
