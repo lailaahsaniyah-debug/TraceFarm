@@ -1,0 +1,349 @@
+
+import { useState } from 'react'
+
+const loadSettings = (key, fallback) => {
+  try {
+    const saved = localStorage.getItem(key)
+    return saved ? { ...fallback, ...JSON.parse(saved) } : fallback
+  } catch {
+    return fallback
+  }
+}
+
+function Settings() {
+  const [profile, setProfile] = useState(() =>
+    loadSettings('tracefarm-profile', {
+      name: 'TraceFarm Admin',
+      email: 'admin@tracefarm.com',
+      organization: 'TraceFarm Agriculture'
+    })
+  )
+
+  const [preferences, setPreferences] = useState(() =>
+    loadSettings('tracefarm-preferences', {
+      language: 'English',
+      timezone: 'Asia/Jakarta',
+      dateFormat: 'DD/MM/YYYY'
+    })
+  )
+
+  const [notifications, setNotifications] = useState(() =>
+    loadSettings('tracefarm-notifications', {
+      products: true,
+      verification: true,
+      tracking: true,
+      reports: false
+    })
+  )
+
+  const [password, setPassword] = useState({
+    current: '',
+    new: '',
+    confirm: ''
+  })
+
+  const [message, setMessage] = useState('')
+  const [messageType, setMessageType] = useState('success')
+
+  const showMessage = (text, type = 'success') => {
+    setMessage(text)
+    setMessageType(type)
+  }
+
+  const updateProfile = (field, value) => {
+    setProfile(prev => ({ ...prev, [field]: value }))
+  }
+
+  const updatePreference = (field, value) => {
+    setPreferences(prev => ({ ...prev, [field]: value }))
+  }
+
+  const toggleNotification = field => {
+    setNotifications(prev => ({
+      ...prev,
+      [field]: !prev[field]
+    }))
+  }
+
+  const saveSettings = () => {
+    try {
+      localStorage.setItem('tracefarm-profile', JSON.stringify(profile))
+      localStorage.setItem('tracefarm-preferences', JSON.stringify(preferences))
+      localStorage.setItem('tracefarm-notifications', JSON.stringify(notifications))
+
+      showMessage('Settings saved successfully!')
+    } catch {
+      showMessage('Unable to save settings in this browser.', 'error')
+    }
+  }
+
+  const changePassword = () => {
+    if (!password.current || !password.new || !password.confirm) {
+      showMessage('Please complete all password fields.', 'error')
+      return
+    }
+
+    if (password.new !== password.confirm) {
+      showMessage('New password and confirmation do not match.', 'error')
+      return
+    }
+
+    if (password.new.length < 8) {
+      showMessage('Password must contain at least 8 characters.', 'error')
+      return
+    }
+
+    showMessage(
+      'Password validated. Actual password changes require backend authentication.',
+      'success'
+    )
+
+    setPassword({
+      current: '',
+      new: '',
+      confirm: ''
+    })
+  }
+
+  return (
+    <div className="page-content settings-page">
+      <div className="page-header">
+        <span className="page-eyebrow">PREFERENCES & CONTROL</span>
+        <h1>Settings</h1>
+        <p>Manage your TraceFarm account and application preferences.</p>
+      </div>
+
+      {message && (
+        <div className={`settings-message ${messageType}`}>
+          <span>{message}</span>
+          <button
+            type="button"
+            onClick={() => setMessage('')}
+            aria-label="Close message"
+          >
+            ×
+          </button>
+        </div>
+      )}
+
+      <div className="settings-layout">
+        <div className="settings-main">
+
+          <section className="settings-card">
+            <div className="settings-section-heading">
+              <div className="settings-section-icon">♙</div>
+              <div>
+                <h2>Profile Information</h2>
+                <p>Manage your account and organization details.</p>
+              </div>
+            </div>
+
+            <div className="settings-form-grid">
+              <label>
+                Full Name
+                <input
+                  value={profile.name}
+                  onChange={e => updateProfile('name', e.target.value)}
+                  placeholder="Enter your name"
+                />
+              </label>
+
+              <label>
+                Email Address
+                <input
+                  type="email"
+                  value={profile.email}
+                  onChange={e => updateProfile('email', e.target.value)}
+                  placeholder="Enter your email"
+                />
+              </label>
+
+              <label className="settings-full-width">
+                Organization
+                <input
+                  value={profile.organization}
+                  onChange={e => updateProfile('organization', e.target.value)}
+                  placeholder="Enter organization name"
+                />
+              </label>
+            </div>
+          </section>
+
+          <section className="settings-card">
+            <div className="settings-section-heading">
+              <div className="settings-section-icon">⚙</div>
+              <div>
+                <h2>General Preferences</h2>
+                <p>Customize how information appears in TraceFarm.</p>
+              </div>
+            </div>
+
+            <div className="settings-form-grid">
+              <label>
+                Language
+                <select
+                  value={preferences.language}
+                  onChange={e => updatePreference('language', e.target.value)}
+                >
+                  <option>English</option>
+                  <option>Bahasa Indonesia</option>
+                </select>
+              </label>
+
+              <label>
+                Timezone
+                <select
+                  value={preferences.timezone}
+                  onChange={e => updatePreference('timezone', e.target.value)}
+                >
+                  <option value="Asia/Jakarta">Jakarta (GMT+7)</option>
+                  <option value="Asia/Makassar">Makassar (GMT+8)</option>
+                  <option value="Asia/Jayapura">Jayapura (GMT+9)</option>
+                </select>
+              </label>
+
+              <label className="settings-full-width">
+                Date Format
+                <select
+                  value={preferences.dateFormat}
+                  onChange={e => updatePreference('dateFormat', e.target.value)}
+                >
+                  <option>DD/MM/YYYY</option>
+                  <option>MM/DD/YYYY</option>
+                  <option>YYYY-MM-DD</option>
+                </select>
+              </label>
+            </div>
+          </section>
+
+          <section className="settings-card">
+            <div className="settings-section-heading">
+              <div className="settings-section-icon">♧</div>
+              <div>
+                <h2>Notifications</h2>
+                <p>Choose which updates you want to receive.</p>
+              </div>
+            </div>
+
+            <div className="settings-toggle-list">
+              {[
+                ['products', 'New Products', 'When a new product is registered.'],
+                ['verification', 'Verification Updates', 'When product verification status changes.'],
+                ['tracking', 'Supply Chain Tracking', 'When a shipment or tracking stage is updated.'],
+                ['reports', 'Weekly Reports', 'Receive weekly activity summaries.']
+              ].map(([key, title, description]) => (
+                <div className="settings-toggle-row" key={key}>
+                  <div>
+                    <strong>{title}</strong>
+                    <p>{description}</p>
+                  </div>
+
+                  <button
+                    type="button"
+                    className={`settings-switch ${notifications[key] ? 'active' : ''}`}
+                    onClick={() => toggleNotification(key)}
+                    aria-label={`Toggle ${title}`}
+                    aria-pressed={notifications[key]}
+                  >
+                    <span />
+                  </button>
+                </div>
+              ))}
+            </div>
+          </section>
+
+          <section className="settings-card">
+            <div className="settings-section-heading">
+              <div className="settings-section-icon">♧</div>
+              <div>
+                <h2>Security</h2>
+                <p>Update your account password.</p>
+              </div>
+            </div>
+
+            <div className="settings-form-grid">
+              <label className="settings-full-width">
+                Current Password
+                <input
+                  type="password"
+                  value={password.current}
+                  onChange={e => setPassword(prev => ({
+                    ...prev,
+                    current: e.target.value
+                  }))}
+                  placeholder="Enter current password"
+                />
+              </label>
+
+              <label>
+                New Password
+                <input
+                  type="password"
+                  value={password.new}
+                  onChange={e => setPassword(prev => ({
+                    ...prev,
+                    new: e.target.value
+                  }))}
+                  placeholder="Minimum 8 characters"
+                />
+              </label>
+
+              <label>
+                Confirm Password
+                <input
+                  type="password"
+                  value={password.confirm}
+                  onChange={e => setPassword(prev => ({
+                    ...prev,
+                    confirm: e.target.value
+                  }))}
+                  placeholder="Confirm new password"
+                />
+              </label>
+            </div>
+
+            <button
+              type="button"
+              className="settings-secondary-button"
+              onClick={changePassword}
+            >
+              Update Password
+            </button>
+          </section>
+
+          <div className="settings-save-area">
+            <button
+              type="button"
+              className="settings-save-button"
+              onClick={saveSettings}
+            >
+              Save Changes
+            </button>
+          </div>
+        </div>
+
+        <aside className="settings-side">
+          <div className="settings-info-card">
+            <div className="settings-info-icon">🌱</div>
+            <h3>TraceFarm</h3>
+            <p>
+              Agricultural traceability and product verification platform.
+            </p>
+            <span>Application Version 1.0.0</span>
+          </div>
+
+          <div className="settings-info-card">
+            <h3>Account Status</h3>
+            <div className="settings-account-status">
+              <span className="settings-status-dot" />
+              Active Account
+            </div>
+            <p>Your local demo account is currently active.</p>
+          </div>
+        </aside>
+      </div>
+    </div>
+  )
+}
+
+export default Settings
