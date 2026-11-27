@@ -13,8 +13,9 @@ import {
 
 import StatCard from '../components/StatCard'
 
+// Gunakan backend pada domain yang sama dengan frontend.
 const API_URL = (
-  import.meta.env.VITE_API_URL || 'http://localhost:5000/api'
+  import.meta.env.VITE_API_URL || '/api'
 ).replace(/\/+$/, '')
 
 const COMMODITIES = [
@@ -59,7 +60,9 @@ async function fetchJSON(url) {
   }
 
   if (!response.ok || result.success === false) {
-    throw new Error(result.message || 'Failed to load dashboard data.')
+    throw new Error(
+      result.message || `Request failed (${response.status})`
+    )
   }
 
   return result
@@ -69,6 +72,7 @@ function getArray(result) {
   if (Array.isArray(result)) return result
   if (Array.isArray(result?.data)) return result.data
   if (Array.isArray(result?.products)) return result.products
+  if (Array.isArray(result?.history)) return result.history
 
   return []
 }
@@ -125,11 +129,16 @@ function Dashboard({ setActivePage }) {
     setDetailWarning('')
 
     try {
-      const productResponse = await fetchJSON(`${API_URL}/products`)
-      const productList = getArray(productResponse)
+      // Produk adalah sumber utama statistik dashboard.
+      const productResponse = await fetchJSON(
+        `${API_URL}/products`
+      )
 
+      const productList = getArray(productResponse)
       setProducts(productList)
 
+      // Ambil tracking dan verification tanpa menggagalkan
+      // statistik utama jika salah satu endpoint bermasalah.
       const detailResults = await Promise.allSettled(
         productList.map(async (product) => {
           const batchId = product.batch_id || product.batchId
@@ -139,8 +148,7 @@ function Dashboard({ setActivePage }) {
               product,
               tracking: [],
               verification: [],
-              trackingFailed: true,
-              verificationFailed: true
+              failed: true
             }
           }
 
@@ -175,8 +183,9 @@ function Dashboard({ setActivePage }) {
             verification: Array.isArray(verificationHistory)
               ? verificationHistory
               : [],
-            trackingFailed: trackingResult.status === 'rejected',
-            verificationFailed: verificationResult.status === 'rejected'
+            failed:
+              trackingResult.status === 'rejected' ||
+              verificationResult.status === 'rejected'
           }
         })
       )
@@ -194,19 +203,20 @@ function Dashboard({ setActivePage }) {
           product,
           tracking,
           verification,
-          trackingFailed,
-          verificationFailed
+          failed
         } = result.value
 
-        if (trackingFailed) failedDetailRequests += 1
-        if (verificationFailed) failedDetailRequests += 1
+        if (failed) failedDetailRequests += 1
 
         const productName =
           product.product_name ||
           product.productName ||
           'Unnamed Product'
 
-        const batchId = product.batch_id || product.batchId || 'Unknown'
+        const batchId =
+          product.batch_id ||
+          product.batchId ||
+          'Unknown'
 
         if (product.created_at || product.createdAt) {
           activityItems.push({
@@ -252,7 +262,8 @@ function Dashboard({ setActivePage }) {
               record.verifiedAt ||
               record.created_at ||
               record.createdAt,
-            color: decision === 'Verified' ? 'blue' : 'yellow'
+            color:
+              decision === 'Verified' ? 'blue' : 'yellow'
           })
         })
       })
@@ -273,7 +284,10 @@ function Dashboard({ setActivePage }) {
       }
     } catch (err) {
       console.error('Dashboard loading error:', err)
-      setError(err.message || 'Unable to load dashboard data.')
+
+      setError(
+        err.message || 'Unable to load dashboard data.'
+      )
     } finally {
       setLoading(false)
     }
@@ -303,7 +317,9 @@ function Dashboard({ setActivePage }) {
   ).length
 
   const commodityGroups = products.reduce((groups, product) => {
-    const name = (product.commodity || '').trim().toLowerCase()
+    const name = (product.commodity || '')
+      .trim()
+      .toLowerCase()
 
     if (!name) return groups
 
@@ -314,17 +330,21 @@ function Dashboard({ setActivePage }) {
 
   const commodities = COMMODITIES.map((commodity, index) => ({
     ...commodity,
-    products: commodityGroups[commodity.name.toLowerCase()] || 0,
+    products:
+      commodityGroups[commodity.name.toLowerCase()] || 0,
     color: commodityColors[index]
   })).sort((a, b) => {
     if (b.products !== a.products) {
       return b.products - a.products
     }
 
-    return COMMODITIES.findIndex(
-      (item) => item.name === a.name
-    ) - COMMODITIES.findIndex(
-      (item) => item.name === b.name
+    return (
+      COMMODITIES.findIndex(
+        (item) => item.name === a.name
+      ) -
+      COMMODITIES.findIndex(
+        (item) => item.name === b.name
+      )
     )
   })
 
@@ -368,8 +388,12 @@ function Dashboard({ setActivePage }) {
     <div className="dashboard-content">
       <div className="page-heading">
         <div>
-          <p className="welcome-text">WELCOME BACK, ADMIN!</p>
+          <p className="welcome-text">
+            WELCOME BACK, ADMIN!
+          </p>
+
           <h1>Dashboard Overview</h1>
+
           <p className="page-description">
             Monitor your agricultural supply chain in one place.
           </p>
@@ -388,24 +412,34 @@ function Dashboard({ setActivePage }) {
               verticalAlign: 'middle'
             }}
           />
+
           {currentMonth}
         </button>
       </div>
 
       {error && (
-        <div className="content-card" style={{ marginBottom: '20px' }}>
+        <div
+          className="content-card"
+          style={{ marginBottom: '20px' }}
+        >
           <p style={{ color: '#c0392b', marginBottom: '10px' }}>
             {error}
           </p>
 
-          <button className="text-button" onClick={loadDashboard}>
+          <button
+            className="text-button"
+            onClick={loadDashboard}
+          >
             Try again <RefreshCw size={15} />
           </button>
         </div>
       )}
 
       {detailWarning && !error && (
-        <div className="content-card" style={{ marginBottom: '20px' }}>
+        <div
+          className="content-card"
+          style={{ marginBottom: '20px' }}
+        >
           <p style={{ color: '#946200', margin: 0 }}>
             {detailWarning}
           </p>
@@ -423,7 +457,9 @@ function Dashboard({ setActivePage }) {
           <div className="section-heading">
             <div>
               <h2>All 12 Commodities</h2>
-              <p>Registered products across agricultural categories</p>
+              <p>
+                Registered products across agricultural categories
+              </p>
             </div>
 
             <button
@@ -438,34 +474,39 @@ function Dashboard({ setActivePage }) {
           <div className="commodity-list">
             {loading ? (
               <p>Loading commodities...</p>
-            ) : commodities.map((item) => (
-              <div className="commodity-item" key={item.name}>
+            ) : (
+              commodities.map((item) => (
                 <div
-                  className="commodity-icon"
-                  style={{
-                    backgroundColor: `${item.color}18`,
-                    color: item.color
-                  }}
+                  className="commodity-item"
+                  key={item.name}
                 >
-                  <Sprout size={22} />
-                </div>
+                  <div
+                    className="commodity-icon"
+                    style={{
+                      backgroundColor: `${item.color}18`,
+                      color: item.color
+                    }}
+                  >
+                    <Sprout size={22} />
+                  </div>
 
-                <div className="commodity-info">
-                  <h3>{item.name}</h3>
-                  <span>{item.category}</span>
-                </div>
+                  <div className="commodity-info">
+                    <h3>{item.name}</h3>
+                    <span>{item.category}</span>
+                  </div>
 
-                <div className="commodity-count">
-                  <strong>{item.products}</strong>
-                  <span>Products</span>
-                </div>
+                  <div className="commodity-count">
+                    <strong>{item.products}</strong>
+                    <span>Products</span>
+                  </div>
 
-                <ArrowUpRight
-                  size={18}
-                  className="commodity-arrow"
-                />
-              </div>
-            ))}
+                  <ArrowUpRight
+                    size={18}
+                    className="commodity-arrow"
+                  />
+                </div>
+              ))
+            )}
           </div>
         </section>
 
@@ -482,13 +523,20 @@ function Dashboard({ setActivePage }) {
               <p>Loading recent activity...</p>
             ) : activities.length > 0 ? (
               activities.map((activity) => (
-                <div className="activity-item" key={activity.id}>
-                  <div className={`activity-dot ${activity.color}`}></div>
+                <div
+                  className="activity-item"
+                  key={activity.id}
+                >
+                  <div
+                    className={`activity-dot ${activity.color}`}
+                  ></div>
 
                   <div>
                     <h3>{activity.title}</h3>
                     <p>{activity.description}</p>
-                    <span>{formatActivityDate(activity.date)}</span>
+                    <span>
+                      {formatActivityDate(activity.date)}
+                    </span>
                   </div>
                 </div>
               ))
