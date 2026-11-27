@@ -1,7 +1,8 @@
 
 import { useEffect, useState } from 'react'
 
-const API_URL = 'http://localhost:5000/api'
+// Menggunakan URL backend dari environment variable saat deployment.
+const API_URL = import.meta.env.VITE_API_URL || 'http://localhost:5000/api'
 const SOLANA_EXPLORER_URL = 'https://explorer.solana.com/tx/'
 
 function formatDate(date) {
@@ -161,8 +162,6 @@ function PublicTrace({ batchId }) {
         verifiedAt: record.verified_at,
         note: record.note,
         auditId: record.audit_id,
-
-        // Solana blockchain proof
         solanaHash: record.solana_hash,
         solanaSignature: record.solana_signature,
         solanaWallet: record.solana_wallet,

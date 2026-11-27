@@ -1,4 +1,3 @@
-
 import { useEffect, useMemo, useState } from 'react'
 import { Buffer } from 'buffer'
 import {
@@ -13,7 +12,7 @@ if (!globalThis.Buffer) {
   globalThis.Buffer = Buffer
 }
 
-const API_URL = 'http://localhost:5000/api/verification'
+const API_URL = `${(import.meta.env.VITE_API_URL || 'http://localhost:5000/api').replace(/\/+$/, '')}/verification`
 const SOLANA_NETWORK = 'devnet'
 const EXPLORER_URL = 'https://explorer.solana.com/tx/'
 
@@ -439,13 +438,11 @@ function Verification() {
         recentBlockhash: blockhash,
       }).add(memoInstruction)
 
-       // Minta Phantom menandatangani transaksi.
+      // Minta Phantom menandatangani transaksi.
       setAnchorMessage('Menunggu tanda tangan transaksi dari Phantom...')
 
-      
-
       const signedTransaction = await provider.signTransaction(transaction)
-      
+
       console.log('[ANCHOR DEBUG] Signed blockhash:', signedTransaction.recentBlockhash)
       console.log('[ANCHOR DEBUG] Wallet:', provider.publicKey?.toBase58())
 
