@@ -64,7 +64,7 @@ function App() {
       />
 
       <main className="main-content">
-        <Header />
+        <Header setActivePage={setActivePage} />
         {renderPage()}
       </main>
     </div>
