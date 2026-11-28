@@ -2,7 +2,7 @@
 import { useEffect, useState } from 'react'
 
 // Menggunakan URL backend dari environment variable saat deployment.
-const API_URL = import.meta.env.VITE_API_URL || 'http://localhost:5000/api'
+const API_URL = (import.meta.env.VITE_API_URL || '/api').replace(/\/+$/, '')
 const SOLANA_EXPLORER_URL = 'https://explorer.solana.com/tx/'
 
 function formatDate(date) {
