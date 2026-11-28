@@ -2,20 +2,22 @@
 import app from '../server/index.js'
 
 export default function handler(req, res) {
-  const originalUrl = req.url || '/'
-  const queryIndex = originalUrl.indexOf('?')
+  const incomingUrl = req.url || '/'
+  const queryIndex = incomingUrl.indexOf('?')
 
-  const pathname = queryIndex === -1
-    ? originalUrl
-    : originalUrl.slice(0, queryIndex)
+  let pathname = queryIndex === -1
+    ? incomingUrl
+    : incomingUrl.slice(0, queryIndex)
 
   const query = queryIndex === -1
     ? ''
-    : originalUrl.slice(queryIndex)
+    : incomingUrl.slice(queryIndex)
 
-  if (!pathname.startsWith('/api')) {
-    req.url = `/api${pathname.startsWith('/') ? pathname : `/${pathname}`}${query}`
+  if (pathname !== '/api' && !pathname.startsWith('/api/')) {
+    pathname = `/api${pathname.startsWith('/') ? pathname : `/${pathname}`}`
   }
+
+  req.url = `${pathname}${query}`
 
   return app(req, res)
 }

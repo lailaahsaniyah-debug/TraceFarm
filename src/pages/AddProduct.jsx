@@ -2,25 +2,15 @@
 import { useState } from 'react'
 
 const API_BASE_URL = (
-  import.meta.env.VITE_API_URL || 'http://localhost:5000/api'
+  import.meta.env.VITE_API_URL || '/api'
 ).replace(/\/+$/, '')
 
 const API_URL = `${API_BASE_URL}/products`
 const STORAGE_KEY = 'tracefarm-products'
 
 const COMMODITIES = [
-  'Rice',
-  'Coffee',
-  'Cocoa',
-  'Corn',
-  'Honey',
-  'Tea',
-  'Coconut',
-  'Palm Oil',
-  'Chili',
-  'Vegetables',
-  'Fruits',
-  'Cassava'
+  'Rice', 'Coffee', 'Cocoa', 'Corn', 'Honey', 'Tea',
+  'Coconut', 'Palm Oil', 'Chili', 'Vegetables', 'Fruits', 'Cassava'
 ]
 
 const INITIAL_FORM = {
@@ -40,11 +30,7 @@ function AddProduct() {
 
   function handleChange(e) {
     const { name, value } = e.target
-
-    setFormData(prev => ({
-      ...prev,
-      [name]: value
-    }))
+    setFormData(prev => ({ ...prev, [name]: value }))
   }
 
   async function generateBatchId() {
@@ -55,27 +41,19 @@ function AddProduct() {
     }
 
     const result = await response.json()
-    const databaseProducts = Array.isArray(result.data)
-      ? result.data
-      : []
+    const databaseProducts = Array.isArray(result.data) ? result.data : []
 
     let legacyProducts = []
-
     try {
-      const storedProducts = JSON.parse(
-        localStorage.getItem(STORAGE_KEY) || '[]'
-      )
-
-      legacyProducts = Array.isArray(storedProducts)
-        ? storedProducts
-        : []
+      const stored = JSON.parse(localStorage.getItem(STORAGE_KEY) || '[]')
+      legacyProducts = Array.isArray(stored) ? stored : []
     } catch {
       legacyProducts = []
     }
 
     const allIds = [
-      ...databaseProducts.map(product => product.batch_id || product.batchId),
-      ...legacyProducts.map(product => product.id || product.batchId)
+      ...databaseProducts.map(p => p.batch_id || p.batchId),
+      ...legacyProducts.map(p => p.id || p.batchId)
     ]
 
     const numbers = allIds
@@ -86,13 +64,11 @@ function AddProduct() {
       .filter(Number.isFinite)
 
     const nextNumber = Math.max(4, ...numbers) + 1
-
     return `TF${String(nextNumber).padStart(3, '0')}`
   }
 
   async function handleSubmit(e) {
     e.preventDefault()
-
     if (isSubmitting) return
 
     const productName = formData.productName.trim()
@@ -100,7 +76,7 @@ function AddProduct() {
     const location = formData.location.trim()
     const quantity = Number(formData.quantity)
 
-    if (!productName || !farmerName || !location) {
+    if (!productName || !farmerName || !location || !formData.harvestDate) {
       setMessage('Please complete all required fields.')
       setMessageType('error')
       return
@@ -131,9 +107,7 @@ function AddProduct() {
 
       const response = await fetch(API_URL, {
         method: 'POST',
-        headers: {
-          'Content-Type': 'application/json'
-        },
+        headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify(newProduct)
       })
 
@@ -141,27 +115,17 @@ function AddProduct() {
 
       if (!response.ok) {
         if (response.status === 409) {
-          throw new Error(
-            'Batch ID already exists. Please try registering again.'
-          )
+          throw new Error('Batch ID already exists. Please try again.')
         }
-
-        throw new Error(
-          result.message || 'Failed to register product.'
-        )
+        throw new Error(result.message || 'Failed to register product.')
       }
 
-      setMessage(
-        `Product ${batchId} registered successfully in PostgreSQL!`
-      )
+      setMessage(`Product ${batchId} registered successfully in PostgreSQL!`)
       setMessageType('success')
       setFormData({ ...INITIAL_FORM })
     } catch (error) {
       console.error('Register product error:', error)
-
-      setMessage(
-        error.message || 'Unable to save product. Please try again.'
-      )
+      setMessage(error.message || 'Unable to save product. Please try again.')
       setMessageType('error')
     } finally {
       setIsSubmitting(false)
@@ -185,10 +149,7 @@ function AddProduct() {
         </div>
 
         {message && (
-          <div
-            className={`settings-message ${messageType}`}
-            role="status"
-          >
+          <div className={`settings-message ${messageType}`} role="status">
             {message}
           </div>
         )}
@@ -197,94 +158,52 @@ function AddProduct() {
           <div className="product-form-grid">
             <div className="form-group">
               <label htmlFor="productName">Product Name</label>
-              <input
-                id="productName"
-                type="text"
-                name="productName"
-                value={formData.productName}
-                onChange={handleChange}
-                placeholder="Enter product name"
-                required
-              />
+              <input id="productName" type="text" name="productName"
+                value={formData.productName} onChange={handleChange}
+                placeholder="Enter product name" required />
             </div>
 
             <div className="form-group">
               <label htmlFor="commodity">Commodity</label>
-              <select
-                id="commodity"
-                name="commodity"
-                value={formData.commodity}
-                onChange={handleChange}
-                required
-              >
+              <select id="commodity" name="commodity"
+                value={formData.commodity} onChange={handleChange} required>
                 {COMMODITIES.map(commodity => (
-                  <option key={commodity} value={commodity}>
-                    {commodity}
-                  </option>
+                  <option key={commodity} value={commodity}>{commodity}</option>
                 ))}
               </select>
             </div>
 
             <div className="form-group">
               <label htmlFor="farmerName">Farmer Name</label>
-              <input
-                id="farmerName"
-                type="text"
-                name="farmerName"
-                value={formData.farmerName}
-                onChange={handleChange}
-                placeholder="Enter farmer name"
-                required
-              />
+              <input id="farmerName" type="text" name="farmerName"
+                value={formData.farmerName} onChange={handleChange}
+                placeholder="Enter farmer name" required />
             </div>
 
             <div className="form-group">
               <label htmlFor="quantity">Quantity (kg)</label>
-              <input
-                id="quantity"
-                type="number"
-                name="quantity"
-                value={formData.quantity}
-                onChange={handleChange}
-                placeholder="Enter quantity"
-                min="0.01"
-                step="any"
-                required
-              />
+              <input id="quantity" type="number" name="quantity"
+                value={formData.quantity} onChange={handleChange}
+                placeholder="Enter quantity" min="0.01" step="any" required />
             </div>
 
             <div className="form-group">
               <label htmlFor="harvestDate">Harvest Date</label>
-              <input
-                id="harvestDate"
-                type="date"
-                name="harvestDate"
-                value={formData.harvestDate}
-                onChange={handleChange}
-                required
-              />
+              <input id="harvestDate" type="date" name="harvestDate"
+                value={formData.harvestDate} onChange={handleChange} required />
             </div>
 
             <div className="form-group">
               <label htmlFor="location">Farm Location</label>
-              <input
-                id="location"
-                type="text"
-                name="location"
-                value={formData.location}
-                onChange={handleChange}
-                placeholder="Enter farm location"
-                required
-              />
+              <input id="location" type="text" name="location"
+                value={formData.location} onChange={handleChange}
+                placeholder="Enter farm location" required />
             </div>
           </div>
 
           <div className="form-actions">
-            <button
-              type="submit"
-              className="register-product-btn"
-              disabled={isSubmitting}
-            >
+            <button type="submit" className="register-product-btn"
+              disabled={isSubmitting}>
               {isSubmitting ? 'Registering...' : 'Register Product'}
             </button>
           </div>
