@@ -20,6 +20,8 @@ function Sidebar({ activePage, setActivePage }) {
     { name: 'Verification', icon: ShieldCheck }
   ]
 
+  const selectPage = (page) => setActivePage(page)
+
   return (
     <aside className="sidebar">
       <div className="sidebar-logo">
@@ -35,26 +37,25 @@ function Sidebar({ activePage, setActivePage }) {
       <div className="sidebar-menu">
         <p className="menu-label">MAIN MENU</p>
 
-        {menuItems.map((item) => {
-          const Icon = item.icon
-
-          return (
-            <button
-              key={item.name}
-              className={`menu-item ${
-                activePage === item.name ? 'active' : ''
-              }`}
-              onClick={() => setActivePage(item.name)}
-            >
-              <Icon size={19} />
-              <span>{item.name}</span>
-            </button>
-          )
-        })}
+        {menuItems.map(({ name, icon: Icon }) => (
+          <button
+            key={name}
+            type="button"
+            className={`menu-item ${activePage === name ? 'active' : ''}`}
+            onClick={() => selectPage(name)}
+          >
+            <Icon size={19} />
+            <span>{name}</span>
+          </button>
+        ))}
       </div>
 
       <div className="sidebar-bottom">
-        <button className="menu-item">
+        <button
+          type="button"
+          className={`menu-item ${activePage === 'Settings' ? 'active' : ''}`}
+          onClick={() => selectPage('Settings')}
+        >
           <Settings size={19} />
           <span>Settings</span>
         </button>
