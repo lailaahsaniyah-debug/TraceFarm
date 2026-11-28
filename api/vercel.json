@@ -1,9 +1,12 @@
-
 {
   "version": 2,
   "buildCommand": "npm run build",
   "outputDirectory": "dist",
   "rewrites": [
+    {
+      "source": "/api/tracking/:batchId",
+      "destination": "/api/tracking?__batchId=:batchId"
+    },
     {
       "source": "/((?!api/).*)",
       "destination": "/index.html"

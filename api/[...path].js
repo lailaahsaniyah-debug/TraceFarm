@@ -1,23 +1,20 @@
-
 import app from '../server/index.js'
 
 export default function handler(req, res) {
-  const incomingUrl = req.url || '/'
-  const queryIndex = incomingUrl.indexOf('?')
+  const url = new URL(req.url || '/', 'http://localhost')
 
-  let pathname = queryIndex === -1
-    ? incomingUrl
-    : incomingUrl.slice(0, queryIndex)
+  const batchId = url.searchParams.get('__batchId')
 
-  const query = queryIndex === -1
-    ? ''
-    : incomingUrl.slice(queryIndex)
-
-  if (pathname !== '/api' && !pathname.startsWith('/api/')) {
-    pathname = `/api${pathname.startsWith('/') ? pathname : `/${pathname}`}`
+  if (url.pathname === '/api/tracking' && batchId) {
+    url.pathname = `/api/tracking/${encodeURIComponent(batchId)}`
+    url.searchParams.delete('__batchId')
   }
 
-  req.url = `${pathname}${query}`
+  if (!url.pathname.startsWith('/api/')) {
+    url.pathname = `/api${url.pathname.startsWith('/') ? '' : '/'}${url.pathname}`
+  }
+
+  req.url = `${url.pathname}${url.search}`
 
   return app(req, res)
 }
