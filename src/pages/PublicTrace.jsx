@@ -1,8 +1,10 @@
 
 import { useEffect, useState } from 'react'
 
-// Menggunakan URL backend dari environment variable saat deployment.
-const API_URL = (import.meta.env.VITE_API_URL || '/api').replace(/\/+$/, '')
+const API_URL = (
+  import.meta.env.VITE_API_URL || '/api'
+).replace(/\/+$/, '')
+
 const SOLANA_EXPLORER_URL = 'https://explorer.solana.com/tx/'
 
 function formatDate(date) {
@@ -10,7 +12,7 @@ function formatDate(date) {
 
   const parsed = new Date(date)
 
-  if (Number.isNaN(parsed.getTime())) return date
+  if (Number.isNaN(parsed.getTime())) return String(date)
 
   return parsed.toLocaleDateString('en-GB', {
     day: 'numeric',
@@ -24,7 +26,7 @@ function formatDateTime(date) {
 
   const parsed = new Date(date)
 
-  if (Number.isNaN(parsed.getTime())) return date
+  if (Number.isNaN(parsed.getTime())) return String(date)
 
   return parsed.toLocaleString('en-GB', {
     day: 'numeric',
@@ -45,7 +47,9 @@ function formatQuantity(quantity) {
 }
 
 function getStatusColors(status) {
-  if (status === 'Verified' || status === 'Completed') {
+  const normalized = String(status || '').toLowerCase()
+
+  if (normalized === 'verified' || normalized === 'completed') {
     return {
       background: '#dcfce7',
       color: '#166534',
@@ -53,7 +57,7 @@ function getStatusColors(status) {
     }
   }
 
-  if (status === 'Rejected') {
+  if (normalized === 'rejected') {
     return {
       background: '#fee2e2',
       color: '#991b1b',
@@ -89,6 +93,26 @@ function StatusBadge({ status }) {
   )
 }
 
+async function fetchJSON(url, signal) {
+  const response = await fetch(url, { signal })
+
+  let result
+
+  try {
+    result = await response.json()
+  } catch {
+    throw new Error('Invalid response from server.')
+  }
+
+  if (!response.ok || result.success === false) {
+    throw new Error(
+      result.message || `Request failed (${response.status})`
+    )
+  }
+
+  return result
+}
+
 function PublicTrace({ batchId }) {
   const [product, setProduct] = useState(null)
   const [history, setHistory] = useState([])
@@ -96,94 +120,119 @@ function PublicTrace({ batchId }) {
   const [loading, setLoading] = useState(true)
   const [error, setError] = useState('')
 
-  async function loadPublicTrace() {
-    if (!batchId) {
-      setError('No Batch ID was provided.')
-      setLoading(false)
-      return
-    }
+  useEffect(() => {
+    const controller = new AbortController()
 
-    setLoading(true)
-    setError('')
+    async function loadPublicTrace() {
+      if (!batchId) {
+        setProduct(null)
+        setHistory([])
+        setVerificationHistory([])
+        setError('No Batch ID was provided.')
+        setLoading(false)
+        return
+      }
 
-    try {
-      const [verificationResponse, trackingResponse] =
-        await Promise.all([
-          fetch(`${API_URL}/verification/${encodeURIComponent(batchId)}`),
-          fetch(`${API_URL}/tracking/${encodeURIComponent(batchId)}`),
+      setLoading(true)
+      setError('')
+
+      try {
+        const encodedBatchId = encodeURIComponent(batchId)
+
+        const [verificationData, trackingData] = await Promise.all([
+          fetchJSON(
+            `${API_URL}/verification/${encodedBatchId}`,
+            controller.signal
+          ),
+          fetchJSON(
+            `${API_URL}/tracking/${encodedBatchId}`,
+            controller.signal
+          ),
         ])
 
-      const verificationData = await verificationResponse.json()
-      const trackingData = await trackingResponse.json()
+        if (!verificationData.product) {
+          throw new Error('Product information was not found.')
+        }
 
-      if (!verificationResponse.ok || !verificationData.success) {
-        throw new Error(
-          verificationData.message || 'Unable to retrieve product information.'
+        const productData = verificationData.product
+
+        setProduct({
+          id: productData.batch_id || productData.batchId,
+          productName:
+            productData.product_name ||
+            productData.productName ||
+            'Unnamed Product',
+          commodity: productData.commodity,
+          farmerName:
+            productData.farmer_name ||
+            productData.farmerName,
+          quantity: productData.quantity,
+          harvestDate:
+            productData.harvest_date ||
+            productData.harvestDate,
+          location: productData.location,
+          status: productData.status || 'Pending',
+        })
+
+        const trackingEvents = Array.isArray(trackingData.data)
+          ? trackingData.data.map((item) => ({
+              id: item.id,
+              stage: item.stage,
+              status: item.status || 'Pending',
+              location: item.location,
+              date: item.event_date || item.eventDate,
+              description: item.description,
+            }))
+          : []
+
+        setHistory(trackingEvents)
+
+        const auditRecords = Array.isArray(verificationData.history)
+          ? verificationData.history
+          : []
+
+        setVerificationHistory(
+          auditRecords.map((record) => ({
+            id: record.id,
+            productName:
+              productData.product_name ||
+              productData.productName,
+            previousStatus: record.previous_status,
+            newStatus: record.new_status,
+            decision: record.decision,
+            verifiedBy: record.verified_by,
+            verifiedAt: record.verified_at,
+            note: record.note,
+            auditId: record.audit_id,
+            solanaHash: record.solana_hash,
+            solanaSignature: record.solana_signature,
+            solanaWallet: record.solana_wallet,
+            solanaNetwork: record.solana_network,
+            solanaAnchoredAt: record.solana_anchored_at,
+            solanaSlot: record.solana_slot,
+          }))
         )
-      }
+      } catch (err) {
+        if (err.name === 'AbortError') return
 
-      if (!trackingResponse.ok || !trackingData.success) {
-        throw new Error(
-          trackingData.message || 'Unable to retrieve tracking history.'
+        console.error('Public trace error:', err)
+
+        setError(
+          err.message || 'Unable to load product traceability data.'
         )
+        setProduct(null)
+        setHistory([])
+        setVerificationHistory([])
+      } finally {
+        if (!controller.signal.aborted) {
+          setLoading(false)
+        }
       }
-
-      const productData = verificationData.product
-
-      setProduct({
-        id: productData.batch_id,
-        productName: productData.product_name,
-        commodity: productData.commodity,
-        farmerName: productData.farmer_name,
-        quantity: productData.quantity,
-        harvestDate: productData.harvest_date,
-        location: productData.location,
-        status: productData.status || 'Pending',
-      })
-
-      const trackingEvents = (trackingData.data || []).map((item) => ({
-        id: item.id,
-        stage: item.stage,
-        status: item.status || 'Pending',
-        location: item.location,
-        date: item.event_date,
-        description: item.description,
-      }))
-
-      setHistory(trackingEvents)
-
-      const auditRecords = (verificationData.history || []).map((record) => ({
-        id: record.id,
-        productName: productData.product_name,
-        previousStatus: record.previous_status,
-        newStatus: record.new_status,
-        decision: record.decision,
-        verifiedBy: record.verified_by,
-        verifiedAt: record.verified_at,
-        note: record.note,
-        auditId: record.audit_id,
-        solanaHash: record.solana_hash,
-        solanaSignature: record.solana_signature,
-        solanaWallet: record.solana_wallet,
-        solanaNetwork: record.solana_network,
-        solanaAnchoredAt: record.solana_anchored_at,
-        solanaSlot: record.solana_slot,
-      }))
-
-      setVerificationHistory(auditRecords)
-    } catch (err) {
-      console.error('Public trace error:', err)
-      setError(err.message || 'Unable to load product traceability data.')
-      setProduct(null)
-      setHistory([])
-      setVerificationHistory([])
-    } finally {
-      setLoading(false)
     }
-  }
 
-  useEffect(() => {
     loadPublicTrace()
+
+    return () => controller.abort()
   }, [batchId])
 
   const styles = {
@@ -325,7 +374,7 @@ function PublicTrace({ batchId }) {
             <h2>Unable to Load Product</h2>
             <p style={{ color: '#b91c1c' }}>{error}</p>
             <button
-              onClick={loadPublicTrace}
+              onClick={() => window.location.reload()}
               style={{
                 background: '#166534',
                 color: '#fff',
@@ -357,36 +406,30 @@ function PublicTrace({ batchId }) {
                   <span style={styles.label}>BATCH ID</span>
                   <div style={styles.value}>{product.id}</div>
                 </div>
-
                 <div>
                   <span style={styles.label}>COMMODITY</span>
                   <div style={styles.value}>{product.commodity || '-'}</div>
                 </div>
-
                 <div>
                   <span style={styles.label}>FARMER</span>
                   <div style={styles.value}>{product.farmerName || '-'}</div>
                 </div>
-
                 <div>
                   <span style={styles.label}>ORIGIN</span>
                   <div style={styles.value}>{product.location || '-'}</div>
                 </div>
-
                 <div>
                   <span style={styles.label}>QUANTITY</span>
                   <div style={styles.value}>
                     {formatQuantity(product.quantity)}
                   </div>
                 </div>
-
                 <div>
                   <span style={styles.label}>HARVEST DATE</span>
                   <div style={styles.value}>
                     {formatDate(product.harvestDate)}
                   </div>
                 </div>
-
                 <div>
                   <span style={styles.label}>VERIFICATION STATUS</span>
                   <StatusBadge status={product.status} />
@@ -421,17 +464,12 @@ function PublicTrace({ batchId }) {
                         border: '2px solid white',
                       }}
                     />
-
                     <span style={styles.eyebrow}>
                       STEP {String(index + 1).padStart(2, '0')}
                     </span>
-
                     <h3 style={{ margin: '7px 0' }}>{item.stage}</h3>
-
                     <StatusBadge status={item.status} />
-
                     <p>{item.description}</p>
-
                     <div style={styles.grid}>
                       <div>
                         <span style={styles.label}>LOCATION</span>
@@ -485,7 +523,6 @@ function PublicTrace({ batchId }) {
                       <strong style={{ fontSize: '15px' }}>
                         {record.productName || product.productName}
                       </strong>
-
                       <StatusBadge
                         status={record.newStatus || record.decision}
                       />
@@ -496,29 +533,24 @@ function PublicTrace({ batchId }) {
                         <strong>Verified by:</strong>{' '}
                         {record.verifiedBy || 'Unknown verifier'}
                       </div>
-
                       <div>
                         <strong>Previous status:</strong>{' '}
                         {record.previousStatus || 'Not recorded'}
                       </div>
-
                       <div>
                         <strong>New status:</strong>{' '}
                         {record.newStatus || record.decision || 'Unknown'}
                       </div>
-
                       <div>
                         <strong>Verification date:</strong>{' '}
                         {formatDateTime(record.verifiedAt)}
                       </div>
-
                       <div style={{ marginTop: '10px' }}>
                         <strong>Verification note:</strong>
                         <p style={{ margin: '5px 0 0' }}>
                           {record.note || 'No verification note provided.'}
                         </p>
                       </div>
-
                       <div style={{ marginTop: '10px', overflowWrap: 'anywhere' }}>
                         <strong>Audit ID:</strong>{' '}
                         {record.auditId || 'Not available'}
@@ -537,35 +569,30 @@ function PublicTrace({ batchId }) {
                             {record.solanaNetwork || 'Devnet'}
                           </div>
                         </div>
-
                         <div style={{ marginBottom: '12px' }}>
                           <span style={styles.label}>AUDIT HASH (SHA-256)</span>
                           <div style={styles.proofValue}>
                             {record.solanaHash}
                           </div>
                         </div>
-
                         <div style={{ marginBottom: '12px' }}>
                           <span style={styles.label}>TRANSACTION SIGNATURE</span>
                           <div style={styles.proofValue}>
                             {record.solanaSignature}
                           </div>
                         </div>
-
                         <div style={{ marginBottom: '12px' }}>
                           <span style={styles.label}>VERIFIER WALLET</span>
                           <div style={styles.proofValue}>
                             {record.solanaWallet || '-'}
                           </div>
                         </div>
-
                         <div style={{ marginBottom: '12px' }}>
                           <span style={styles.label}>BLOCKCHAIN SLOT</span>
                           <div style={styles.proofValue}>
                             {record.solanaSlot ?? '-'}
                           </div>
                         </div>
-
                         <div>
                           <span style={styles.label}>ANCHORED AT</span>
                           <div style={styles.proofValue}>

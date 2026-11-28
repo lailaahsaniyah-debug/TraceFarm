@@ -12,7 +12,9 @@ if (!globalThis.Buffer) {
   globalThis.Buffer = Buffer
 }
 
-const API_URL = `${(import.meta.env.VITE_API_URL || 'http://localhost:5000/api').replace(/\/+$/, '')}/verification`
+const API_URL = `${
+  (import.meta.env.VITE_API_URL || '/api').replace(/\/+$/, '')
+}/verification`
 const SOLANA_NETWORK = 'devnet'
 const EXPLORER_URL = 'https://explorer.solana.com/tx/'
 

@@ -1,7 +1,9 @@
 
 import { useEffect, useState } from 'react'
 
-const API_BASE = (import.meta.env.VITE_API_URL || 'http://localhost:5000/api').replace(/\/+$/, '')
+const API_BASE = (
+  import.meta.env.VITE_API_URL || '/api'
+).replace(/\/+$/, '')
 
 const STAGES = [
   'Harvest',

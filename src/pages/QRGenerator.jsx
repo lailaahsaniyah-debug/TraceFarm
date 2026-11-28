@@ -3,7 +3,7 @@ import { useCallback, useEffect, useState } from 'react'
 import QRCode from 'qrcode'
 
 const API_URL = (
-  import.meta.env.VITE_API_URL || 'http://localhost:5000/api'
+  import.meta.env.VITE_API_URL || '/api'
 ).replace(/\/+$/, '')
 
 function QRGenerator() {
@@ -21,10 +21,18 @@ function QRGenerator() {
 
     try {
       const response = await fetch(`${API_URL}/products`)
-      const result = await response.json()
+      let result
+
+      try {
+        result = await response.json()
+      } catch {
+        throw new Error('Invalid response from server.')
+      }
 
       if (!response.ok || result.success === false) {
-        throw new Error(result.message || 'Unable to load products.')
+        throw new Error(
+          result.message || `Unable to load products (${response.status}).`
+        )
       }
 
       const databaseProducts = Array.isArray(result)
@@ -60,7 +68,7 @@ function QRGenerator() {
 
       setSelectedId((currentId) => {
         const stillExists = formattedProducts.some(
-          (product) => product.id === currentId
+          (product) => String(product.id) === String(currentId)
         )
 
         return stillExists
@@ -69,14 +77,18 @@ function QRGenerator() {
       })
 
       if (formattedProducts.length === 0) {
+        setQrImage('')
+        setProductUrl('')
         setError('No registered products found in the database.')
       }
     } catch (err) {
       console.error('Load QR products error:', err)
+
       setProducts([])
       setSelectedId('')
       setQrImage('')
       setProductUrl('')
+
       setError(
         err.message || 'Unable to connect to the TraceFarm database.'
       )
@@ -88,15 +100,19 @@ function QRGenerator() {
   useEffect(() => {
     loadProducts()
 
-    window.addEventListener('focus', loadProducts)
+    function handleFocus() {
+      loadProducts()
+    }
+
+    window.addEventListener('focus', handleFocus)
 
     return () => {
-      window.removeEventListener('focus', loadProducts)
+      window.removeEventListener('focus', handleFocus)
     }
   }, [loadProducts])
 
   const selectedProduct = products.find(
-    (product) => product.id === selectedId
+    (product) => String(product.id) === String(selectedId)
   )
 
   function handleProductChange(event) {
